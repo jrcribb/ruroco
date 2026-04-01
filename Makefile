@@ -52,7 +52,7 @@ check:
 	cargo check --locked --verbose
 
 format:
-	cargo fix && cargo fmt && cargo clippy --tests --verbose -- -D warnings
+	cargo fix --allow-dirty && cargo fmt && cargo clippy --tests --verbose -- -D warnings
 
 install_client: release
 	mkdir -p ~/.local/bin/
