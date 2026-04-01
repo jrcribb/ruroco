@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/beac0n/dev/beac0n/ruroco && make format && make test",
+            "timeout": 300,
+            "statusMessage": "Running make format && make test..."
+          }
+        ]
+      }
+    ]
+  },
+  "prefersReducedMotion": true
+}
