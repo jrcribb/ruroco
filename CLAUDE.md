@@ -1,72 +1,86 @@
 # CLAUDE.md
 
-## Quick Reference
-
-Build: `make build`
-Test: `make test` (runs `cargo nextest run --retries 2` with `TEST_UPDATER=1`)
-Lint: `make format` (runs `cargo fix && cargo fmt && cargo clippy --tests --verbose -- -D warnings`)
-Check: `make check` (runs `cargo check --locked` with and without default features)
-Coverage: `make coverage`
-
-All clippy warnings are treated as errors in CI (`-D warnings`).
-
 ## Project
 
-Ruroco (Run Remote Command) — encrypted one-way UDP remote command execution.
+Ruroco (Run Remote Command) — encrypted, one-way UDP remote command execution in Rust.
+Client encrypts a command hash + counter with AES-256-GCM and sends a single 93-byte UDP packet.
+Server decrypts, validates replay protection, then forwards to Commander via Unix socket IPC.
+
+## Commands
 
 ```
-ruroco-client --UDP(AES-256-GCM)--> ruroco-server --Unix socket--> ruroco-commander
+make build        # Build all 4 binaries (each with different --features)
+make test         # cargo nextest run --retries 2 (needs TEST_UPDATER=1)
+make format       # cargo fix && cargo fmt && cargo clippy --tests -- -D warnings
+make check        # cargo check --locked (with and without default features)
+make coverage     # cargo tarpaulin --timeout 360
 ```
 
-Four binaries: `src/bin/client.rs`, `src/bin/client_ui.rs` (Slint GUI), `src/bin/server.rs`, `src/bin/commander.rs`.
+Binaries are built individually with `--no-default-features` plus specific feature flags.
+Each binary needs different features: `with-client`, `with-gui`, `with-server`.
 
-Four modules: `src/client/`, `src/server/`, `src/common/` (crypto, protocol, fs, logging), `src/ui/` (Slint + Android).
+## Code Rules
 
-## Code Conventions
-
-- `anyhow::Result<T>` for all error handling. Propagate with `?`, add context with `.with_context(|| "...")`, use `bail!`/`anyhow!` for explicit errors.
-- Prefer `pub(crate)` over `pub` for internal items.
-- Max line width: 100 chars. 4-space indent. Full config in `rustfmt.toml`.
-- **No panics in production code.** Never use `.unwrap()`, `.expect()`, `panic!()`, array indexing that can go out of bounds, or any other method that can panic. Always use fallible alternatives (e.g. `?`, `.ok_or()`, `.get()`, `.try_into()`). `unwrap()` is only allowed in test code (`allow-unwrap-in-tests = true` in `clippy.toml`).
-- Logging: use `info()`/`error()` from `src/common/logging.rs` (custom minimal logger, no external crate).
+- `anyhow::Result<T>` everywhere. Propagate with `?`, add context with `.with_context()`.
+- **No panics in production code.** No `.unwrap()`, `.expect()`, `panic!()`, fallible indexing.
+  `unwrap()` is only allowed in tests (`clippy.toml: allow-unwrap-in-tests = true`).
+- `pub(crate)` over `pub` for internal items.
+- Max line width: 100 chars. 4-space indent. Config in `rustfmt.toml`.
+- All clippy warnings are errors in CI (`-D warnings`).
+- Logging: use `info()`/`error()` from `src/common/logging.rs` (custom logger, no external crate).
 - No unsafe code.
 
-## Protocol (do not change sizes without understanding the full impact)
+## Architecture
+
+```
+src/bin/           4 binaries: client, client_ui (Slint GUI), server, commander
+src/client/        CLI parsing, key gen, UDP send, counter, lock, self-update, wizard
+src/server/        UDP listener, config, commander IPC, blocklist (replay protection)
+src/common/        Shared: crypto/, protocol/, logging.rs, fs.rs
+src/ui/            Slint GUI + Android JNI bridge
+```
+
+- Server and Commander are separate processes (privilege separation via Unix socket).
+- Client never knows actual commands — only sends Blake2b-64 hashes of command names.
+- Server never sends responses (completely unidirectional).
+- All IPs stored internally as IPv6-mapped format (16 bytes).
+- Counter is nanosecond timestamp (u128), not sequential — gaps are expected.
+
+## Protocol (do not change sizes without understanding full impact)
 
 Defined in `src/common/protocol/constants.rs`:
-- `MSG_SIZE` = 93 bytes (fixed packet size: 8B key ID + 12B IV + 16B tag + 57B ciphertext)
+- `MSG_SIZE` = 93 bytes: KEY_ID(8) + IV(12) + TAG(16) + CIPHERTEXT(57)
 - `PLAINTEXT_SIZE` = 57, `CIPHERTEXT_SIZE` = 85, `KEY_ID_SIZE` = 8
-
-## Crypto
-
-- AES-256-GCM encryption via `openssl` crate (`src/common/crypto/handler.rs`)
-- Key derivation: PBKDF2-HMAC-SHA256, 100k iterations
-- Command names hashed with Blake2b-64 — never sent over the wire
-- Replay prevention: monotonic counter per key ID, persisted to `blocklist.toml`
 
 ## Testing
 
-- Unit tests: inline `#[cfg(test)]` modules in source files
-- Integration tests: `tests/integration_test.rs` — uses `tempfile::tempdir()` for isolation
-- End-to-end: `scripts/test_end_to_end.sh` (systemd services, requires sudo)
-- Fixtures: `tests/conf_dir/` (keys/config), `tests/files/` (sample TOMLs)
-- Coverage: `cargo tarpaulin` — UI modules (`src/ui/rust_slint_bridge*.rs`) and Android code (`src/common/android_util.rs`) are untestable without runtime
-- Use `tempfile::tempdir()` for all test isolation; never hardcode paths that could collide between parallel tests
-- Locale gotcha: avoid parsing `id` command output in tests — system locale affects error messages (e.g. German locale wraps names in `»«`)
-- For testing HTTP downloads, use local `TcpListener` on port 0 to avoid network dependencies
-- `ConfigServer` implements `Default` — use `ConfigServer { field: val, ..Default::default() }` in tests
+- Unit tests: inline `#[cfg(test)]` modules in source files.
+- Integration tests: `tests/integration_test.rs` — uses `tempfile::tempdir()` for isolation.
+- E2E: `scripts/test_end_to_end.sh` (systemd, requires sudo).
+- Use `tempfile::tempdir()` for all test isolation; never hardcode paths.
+- `ConfigServer` implements `Default` — use struct update syntax in tests.
+- For HTTP download tests, use local `TcpListener` on port 0.
+- Locale gotcha: don't parse `id` command output — system locale affects error messages.
 
-## Build
+## Features (conditional compilation)
 
-- Nix for reproducible environments: `nix-shell nix/linux.nix --pure`
-- Features: `release-build` (vendors OpenSSL), `android-build` (Slint Android backend)
-- Release profile optimizes for size: `opt-level = "z"`, `strip = true`, `lto = true`, `panic = 'abort'`
-- CI: GitHub Actions (`.github/workflows/rust.yml`) — check, typos, test, e2e test, coverage, format, release on `v*` tags
+```
+default       = ["with-gui", "with-server"]
+release-build = ["openssl/vendored"]
+android-build = ["dep:ndk-context", "dep:jni"]
+with-server   = ["dep:toml"]
+with-gui      = ["dep:slint", "slint-build"]
+with-client   = ["dep:reqwest"]
+```
 
-## Configuration
+## Key Files
 
-Server config: `config/config.toml`. Commands receive client IP via `$RUROCO_IP` env var.
-Client state: `~/.config/ruroco/counter` (u128 big-endian), `~/.config/ruroco/client.lock` (file mutex).
-Systemd service files in `systemd/` (socket activation on `[::]:80`, strict sandboxing).
+- `config/config.toml` — example server config (commands receive `$RUROCO_IP` env var)
+- `systemd/` — service files (socket activation on `[::]:80`)
+- `.github/workflows/rust.yml` — CI pipeline
+- `build.rs` — Slint compilation (only when `with-gui` enabled)
 
-Env var overrides: `RUROCO_CONF_DIR` (client config dir), `RUROCO_LISTEN_ADDRESS` (server bind address).
+## On Compaction
+
+Preserve: project overview, build commands, no-panic rule, protocol sizes, architecture layout,
+feature flags, and test conventions. These are the most commonly needed during development.
