@@ -58,8 +58,10 @@ mod tests {
 
         let loaded = Blocklist::create(dir.path()).unwrap();
         assert_eq!(loaded.get().len(), 2);
-        assert!(loaded.is_blocked([1, 2, 3, 4, 5, 6, 7, 8], 123456789012345678901234567890));
-        assert!(loaded.is_blocked([8, 7, 6, 5, 4, 3, 2, 1], u128::MAX));
+        assert!(
+            loaded.is_counter_replayed([1, 2, 3, 4, 5, 6, 7, 8], 123456789012345678901234567890)
+        );
+        assert!(loaded.is_counter_replayed([8, 7, 6, 5, 4, 3, 2, 1], u128::MAX));
     }
 
     #[test]
@@ -104,6 +106,6 @@ mod tests {
 
         let loaded = Blocklist::create(dir.path()).unwrap();
         assert_eq!(loaded.get().len(), 1);
-        assert!(loaded.is_blocked([0, 0, 0, 0, 0, 0, 0, 0], 0));
+        assert!(loaded.is_counter_replayed([0, 0, 0, 0, 0, 0, 0, 0], 0));
     }
 }

@@ -119,7 +119,7 @@ impl Server {
         };
 
         match ClientData::deserialize(plaintext_data) {
-            Ok(client_data) if self.blocklist.is_blocked(key_id, client_data.counter) => {
+            Ok(client_data) if self.blocklist.is_counter_replayed(key_id, client_data.counter) => {
                 Err(anyhow!("Invalid counter - {} is on blocklist", client_data.counter))
             }
             Ok(client_data) if !self.config.ips.contains(&client_data.dst_ip) => {

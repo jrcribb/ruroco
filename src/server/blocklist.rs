@@ -45,8 +45,7 @@ impl Blocklist {
         resolve_path(config_dir).join("blocklist.toml")
     }
 
-    /// checks if the provided deadline is within the blocklist
-    pub fn is_blocked(&self, key_id: [u8; 8], value: u128) -> bool {
+    pub fn is_counter_replayed(&self, key_id: [u8; 8], value: u128) -> bool {
         match self.map.get(&Self::key_id_to_u64(key_id)) {
             Some(v) => v >= &value,
             None => false,
@@ -132,13 +131,13 @@ mod tests {
         let key_id = [0u8; 8];
         blocklist.add(key_id, 42);
 
-        assert!(blocklist.is_blocked(key_id, 42));
-        assert!(!blocklist.is_blocked(key_id, 43));
+        assert!(blocklist.is_counter_replayed(key_id, 42));
+        assert!(!blocklist.is_counter_replayed(key_id, 43));
 
         let mut key_id = [0u8; 8];
         key_id[0] = 1;
 
-        assert!(!blocklist.is_blocked(key_id, 42));
+        assert!(!blocklist.is_counter_replayed(key_id, 42));
 
         remove_blocklist();
     }
@@ -165,11 +164,11 @@ mod tests {
         blocklist.add(key_id, 100);
 
         // Counter equal to stored value should be blocked
-        assert!(blocklist.is_blocked(key_id, 100));
+        assert!(blocklist.is_counter_replayed(key_id, 100));
         // Counter less than stored value should be blocked
-        assert!(blocklist.is_blocked(key_id, 50));
+        assert!(blocklist.is_counter_replayed(key_id, 50));
         // Counter greater than stored value should not be blocked
-        assert!(!blocklist.is_blocked(key_id, 101));
+        assert!(!blocklist.is_counter_replayed(key_id, 101));
 
         remove_blocklist();
     }
