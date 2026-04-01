@@ -58,6 +58,14 @@ where
         .collect()
 }
 
+/// Default UDP port ruroco listens on when no address is supplied via argument,
+/// `RUROCO_LISTEN_ADDRESS`, or systemd socket activation.
+///
+/// Derived from the alphabet indices of the letters in "ruroco":
+/// r=18, u=21, r=18, o=15, c=3, o=15 → distinct values multiplied together × 2:
+/// 18 × 21 × 15 × 3 × 2 = 34020
+pub(crate) const DEFAULT_PORT: u16 = 34020;
+
 impl ConfigServer {
     pub(crate) fn get_hash_to_cmd(&self) -> anyhow::Result<HashMap<u64, String>> {
         self.commands
@@ -112,13 +120,9 @@ impl ConfigServer {
                 Err(anyhow!("LISTEN_PID ({listen_pid}) does not match current PID"))
             }
             _ => {
-                // port is calculated by using the alphabet indexes of the word ruroco:
-                // r = 18, u = 21, r = 18, o = 15, c = 3, o = 15
-                // and multiplying the distinct values with each other times two:
-                // 18 * 21 * 15 * 3 * 2 = 34020
-                let address = "[::]:34020";
+                let address = format!("[::]:{}", DEFAULT_PORT);
                 info(&format!("UdpSocket bind to {address} - fallback"));
-                UdpSocket::bind(address)
+                UdpSocket::bind(&address)
                     .with_context(|| format!("Could not UdpSocket bind {address:?}"))
             }
         }
