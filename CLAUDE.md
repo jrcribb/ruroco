@@ -49,6 +49,7 @@ src/ui/            Slint GUI + Android JNI bridge
 ## Protocol (do not change sizes without understanding full impact)
 
 Defined in `src/common/protocol/constants.rs`:
+
 - `MSG_SIZE` = 93 bytes: KEY_ID(8) + IV(12) + TAG(16) + CIPHERTEXT(57)
 - `PLAINTEXT_SIZE` = 57, `CIPHERTEXT_SIZE` = 85, `KEY_ID_SIZE` = 8
 
@@ -79,6 +80,11 @@ with-client   = ["dep:reqwest"]
 - `systemd/` — service files (socket activation on `[::]:80`)
 - `.github/workflows/rust.yml` — CI pipeline
 - `build.rs` — Slint compilation (only when `with-gui` enabled)
+
+## Hooks
+
+A `PostToolUse` hook in `.claude/settings.json` automatically runs `make format && make test`
+after every `Write`, `Edit`, or `NotebookEdit` tool call.
 
 ## On Compaction
 
