@@ -2846,9 +2846,9 @@ dependencies = [
 
 [[package]]
 name = "input-sys"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd4f5b4d1c00331c5245163aacfe5f20be75b564c7112d45893d4ae038119eb0"
+checksum = "36eee07d8e02bd95bf52b2e642cf13d33701b94c6e4b04fbf1d1fb07e9cb19e7"
 
 [[package]]
 name = "integer-sqrt"
@@ -4861,7 +4861,7 @@ dependencies = [
 
 [[package]]
 name = "ruroco"
-version = "0.12.1"
+version = "0.12.2"
 dependencies = [
  "anyhow",
  "base64",
