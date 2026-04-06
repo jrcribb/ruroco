@@ -61,12 +61,21 @@ impl AndroidUtil {
         self.vm.attach_current_thread(|env| {
             let action =
                 env.new_string("android.intent.action.VIEW").context("Failed to create action")?;
-            Self::new_object_impl(
+            let intent = Self::new_object_impl(
                 env,
                 "android/content/Intent",
                 "(Ljava/lang/String;Landroid/net/Uri;)V",
                 &[JValue::from(&action), JValue::from(uri.as_ref())],
-            )
+            )?;
+            // FLAG_ACTIVITY_NEW_TASK required when starting activity from non-Activity context
+            Self::call_method_impl(
+                env,
+                intent.as_ref(),
+                "addFlags",
+                "(I)Landroid/content/Intent;",
+                &[JValue::Int(0x10000000)],
+            )?;
+            Ok(intent)
         })
     }
 
