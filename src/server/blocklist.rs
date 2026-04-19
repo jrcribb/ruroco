@@ -48,8 +48,12 @@ impl Blocklist {
     pub fn is_counter_replayed(&self, key_id: [u8; 8], value: u128) -> bool {
         match self.map.get(&Self::key_id_to_u64(key_id)) {
             Some(v) => v >= &value,
-            None => false,
+            None => true,
         }
+    }
+
+    pub(crate) fn seed_if_absent(&mut self, key_id: [u8; 8], floor: u128) {
+        self.map.entry(Self::key_id_to_u64(key_id)).or_insert(floor);
     }
 
     pub(crate) fn get_counter(&self, key_id: [u8; 8]) -> Option<&u128> {
@@ -137,7 +141,7 @@ mod tests {
         let mut key_id = [0u8; 8];
         key_id[0] = 1;
 
-        assert!(!blocklist.is_counter_replayed(key_id, 42));
+        assert!(blocklist.is_counter_replayed(key_id, 42));
 
         remove_blocklist();
     }

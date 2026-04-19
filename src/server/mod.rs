@@ -46,12 +46,19 @@ impl Server {
     }
 
     pub fn create(config: ConfigServer, address: Option<String>) -> anyhow::Result<Server> {
+        let crypto_handlers = config.create_crypto_handlers()?;
+        let mut blocklist = config.create_blocklist()?;
+        let floor = crate::common::now_nanos()?;
+        for key_id in crypto_handlers.keys() {
+            blocklist.seed_if_absent(*key_id, floor);
+        }
+        blocklist.save()?;
         Ok(Server {
-            crypto_handlers: config.create_crypto_handlers()?,
+            crypto_handlers,
             socket: config.create_server_udp_socket(address)?,
             client_recv_data: [0u8; MSG_SIZE],
             socket_path: config.get_commander_unix_socket_path(),
-            blocklist: config.create_blocklist()?,
+            blocklist,
             config,
         })
     }
@@ -397,6 +404,8 @@ mod tests {
     fn test_validate_blocked_counter() {
         let (mut server, key) = create_server_with_key().unwrap();
         let localhost = "127.0.0.1".parse().unwrap();
+        let counter =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
 
         let encoded = load_encrypted_packet(
             &mut server,
@@ -405,7 +414,7 @@ mod tests {
             false,
             Some(localhost),
             localhost,
-            100,
+            counter,
         );
         assert!(server.run_loop_iteration(localhost_src(8080)).is_ok());
 
@@ -425,7 +434,7 @@ mod tests {
             false,
             Some("127.0.0.1".parse().unwrap()),
             "10.0.0.1".parse().unwrap(), // not in server's ips list
-            200,
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
         );
         assert!(server
             .run_loop_iteration(localhost_src(8080))
@@ -444,7 +453,7 @@ mod tests {
             true,                              // strict
             Some("10.0.0.1".parse().unwrap()), // doesn't match actual source
             "127.0.0.1".parse().unwrap(),
-            300,
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
         );
         assert!(server
             .run_loop_iteration(localhost_src(8080))
@@ -489,7 +498,15 @@ mod tests {
 
         let (mut server, key) = create_server_with_key_in_dir(socket_dir).unwrap();
         let localhost = "127.0.0.1".parse().unwrap();
-        load_encrypted_packet(&mut server, &key, "default", false, Some(localhost), localhost, 500);
+        load_encrypted_packet(
+            &mut server,
+            &key,
+            "default",
+            false,
+            Some(localhost),
+            localhost,
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+        );
 
         assert!(server.run_loop_iteration(localhost_src(8080)).is_ok());
         std::thread::sleep(std::time::Duration::from_millis(500));
@@ -519,7 +536,15 @@ mod tests {
     fn test_validate_ipv6_mapped_ipv4() {
         let (mut server, key) = create_server_with_key().unwrap();
         let localhost = "127.0.0.1".parse().unwrap();
-        load_encrypted_packet(&mut server, &key, "default", false, Some(localhost), localhost, 400);
+        load_encrypted_packet(
+            &mut server,
+            &key,
+            "default",
+            false,
+            Some(localhost),
+            localhost,
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+        );
 
         // Send from IPv6-mapped IPv4 address — should be converted to IPv4
         let result = server.run_loop_iteration(Ok((

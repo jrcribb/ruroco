@@ -3,13 +3,12 @@ use crate::client::counter::Counter;
 use crate::common::client_data::ClientData;
 use crate::common::data_parser::DataParser;
 use crate::common::protocol::PLAINTEXT_SIZE;
-use crate::common::{info, resolve_path};
+use crate::common::{info, now_nanos, resolve_path};
 use anyhow::{bail, Context};
 use openssl::version::version;
 use std::fmt::Debug;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs, UdpSocket};
 use std::path::PathBuf;
-use std::time::SystemTime;
 
 #[derive(Debug)]
 pub struct Sender {
@@ -25,14 +24,10 @@ impl Sender {
     pub fn create(cmd: SendCommand) -> anyhow::Result<Self> {
         let counter_path = Self::get_counter_path()?;
         info(&format!("Loading counter from {counter_path:?} ..."));
-        let initial_counter = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .with_context(|| format!("Could not get duration since {:?}", SystemTime::UNIX_EPOCH))?
-            .as_nanos();
         Ok(Self {
             data_parser: DataParser::create(&cmd.key)?,
             cmd,
-            counter: Counter::create_and_init(counter_path, initial_counter)?,
+            counter: Counter::create_and_init(counter_path, now_nanos()?)?,
         })
     }
 

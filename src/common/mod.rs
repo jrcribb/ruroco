@@ -13,3 +13,11 @@ pub(crate) use fs::resolve_path;
 pub(crate) use logging::info;
 pub(crate) use protocol::client_data;
 pub(crate) use protocol::parser as data_parser;
+
+pub(crate) fn now_nanos() -> anyhow::Result<u128> {
+    use anyhow::Context;
+    Ok(std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .with_context(|| "system clock before epoch")?
+        .as_nanos())
+}
