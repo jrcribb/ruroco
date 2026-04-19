@@ -1,9 +1,38 @@
 use crate::common::logging::error;
 use anyhow::{bail, Context};
+use std::io::Write;
 use std::os::unix::fs::chown;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs};
+
+pub(crate) fn write_atomic_text(path: &Path, contents: String) -> anyhow::Result<()> {
+    let tmp_path = path.with_extension("tmp");
+
+    {
+        let mut f = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&tmp_path)
+            .with_context(|| format!("open {}", tmp_path.display()))?;
+
+        f.write_all(contents.as_bytes())
+            .with_context(|| format!("write tmp {}", tmp_path.display()))?;
+        f.sync_all().with_context(|| format!("fsync tmp {}", tmp_path.display()))?;
+    }
+
+    fs::rename(&tmp_path, path)
+        .with_context(|| format!("rename {} -> {}", tmp_path.display(), path.display()))?;
+
+    // Best-effort: fsync the parent directory so the rename itself is durable.
+    if let Some(parent) = path.parent() {
+        if let Ok(dir) = fs::File::open(parent) {
+            let _ = dir.sync_all();
+        }
+    }
+    Ok(())
+}
 
 pub(crate) fn resolve_path(path: &Path) -> PathBuf {
     if path.is_absolute() {
