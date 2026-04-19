@@ -2,28 +2,17 @@ use crate::common::crypto::handler::CryptoHandler;
 use crate::common::protocol::{CIPHERTEXT_SIZE, KEY_ID_SIZE, PLAINTEXT_SIZE};
 use anyhow::Context;
 use base64::{engine::general_purpose, Engine};
-use openssl::hash::MessageDigest;
-use openssl::pkcs5::pbkdf2_hmac;
 use openssl::rand::rand_bytes;
 use openssl::symm::{Cipher, Crypter, Mode};
 
 const IV_SIZE: usize = 12;
 const TAG_SIZE: usize = 16;
 const KEY_SIZE: usize = 32;
-const SALT_SIZE: usize = 16;
-const KEY_DERIVATION_ITERATIONS: usize = 100_000;
 
 impl CryptoHandler {
     pub(crate) fn gen_key() -> anyhow::Result<String> {
-        let mut secret = [0u8; KEY_SIZE];
-        rand_bytes(&mut secret).with_context(|| "Could not generate secret")?;
-
-        let mut salt = [0u8; SALT_SIZE];
-        rand_bytes(&mut salt).with_context(|| "Could not generate salt")?;
-
         let mut key = [0u8; KEY_SIZE];
-        pbkdf2_hmac(&secret, &salt, KEY_DERIVATION_ITERATIONS, MessageDigest::sha256(), &mut key)
-            .with_context(|| "Could not generate AES key")?;
+        rand_bytes(&mut key).with_context(|| "Could not generate key")?;
 
         let mut id = [0u8; KEY_ID_SIZE];
         rand_bytes(&mut id).with_context(|| "Could not generate key id")?;
