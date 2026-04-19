@@ -1,36 +1,33 @@
-//! This module is responsible for persisting, holding and checking the blocklist for blocked items
+//! This module is responsible for persisting, holding, and checking the blocklist for blocked items
 
 use anyhow::Context;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::common::fs::write_atomic_text;
+use crate::common::fs::write_atomic;
 use crate::common::resolve_path;
-use crate::server::blocklist_serialization::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
 /// contains a list of blocked deadlines and a path to where the blocklist is persisted
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct Blocklist {
-    #[serde(serialize_with = "serialize", deserialize_with = "deserialize")]
     map: HashMap<u64, u128>,
     path: PathBuf,
 }
 
 impl Blocklist {
-    /// create an empty blocklist. Every entry will be saved to config_dir/blocklist.toml.
-    /// If the blocklist.toml file already exists, its content will be loaded if possible.
+    /// Create an empty blocklist. Every entry will be saved to config_dir/blocklist.msgpck.
+    /// If the blocklist.msgpck file already exists, its content will be loaded if possible.
     pub fn create(config_dir: &Path) -> anyhow::Result<Blocklist> {
         let blocklist_path = Self::get_blocklist_path(config_dir);
         let blocklist = if blocklist_path.exists() {
-            let blocklist_str = fs::read_to_string(&blocklist_path).with_context(|| {
+            let blocklist_str = fs::read(&blocklist_path).with_context(|| {
                 format!("Could not read blocklist from path {blocklist_path:?}")
             })?;
 
-            toml::from_str(&blocklist_str).with_context(|| {
-                format!("Could not create blocklist from string {blocklist_str}")
-            })?
+            rmp_serde::from_slice(&blocklist_str)
+                .with_context(|| "Could not create blocklist from vec")?
         } else {
             Blocklist {
                 map: HashMap::new(),
@@ -43,7 +40,7 @@ impl Blocklist {
     }
 
     pub fn get_blocklist_path(config_dir: &Path) -> PathBuf {
-        resolve_path(config_dir).join("blocklist.toml")
+        resolve_path(config_dir).join("blocklist.msgpck")
     }
 
     pub fn is_counter_replayed(&self, key_id: [u8; 8], value: u128) -> bool {
@@ -77,8 +74,8 @@ impl Blocklist {
 
     /// saves the current content of the blocklist to the defined path
     pub(crate) fn save(&self) -> anyhow::Result<()> {
-        let toml_string = toml::to_string(&self).with_context(|| "Error serializing blacklist")?;
-        write_atomic_text(&self.path, toml_string).with_context(|| "Error persisting blacklist")?;
+        let vec = rmp_serde::to_vec(&self).with_context(|| "Error serializing blacklist")?;
+        write_atomic(&self.path, vec.as_slice()).with_context(|| "Error persisting blacklist")?;
         Ok(())
     }
 }

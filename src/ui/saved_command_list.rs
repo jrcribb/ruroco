@@ -1,4 +1,4 @@
-use crate::common::fs::write_atomic_text;
+use crate::common::fs::write_atomic;
 use crate::common::logging::error;
 use crate::common::resolve_path;
 use crate::ui::command_data::{command_to_data, data_to_command};
@@ -74,7 +74,7 @@ impl CommandsList {
             Err(e) => return error(format!("Error serializing commands list: {e}")),
         };
 
-        match write_atomic_text(&self.path, toml_str) {
+        match write_atomic(&self.path, toml_str.as_bytes()) {
             Ok(_) => (),
             Err(e) => error(format!("Error persisting commands list: {e}")),
         };

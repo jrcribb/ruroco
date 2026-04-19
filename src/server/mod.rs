@@ -1,6 +1,5 @@
 /// persists the blocked list of deadlines
 pub mod blocklist;
-mod blocklist_serialization;
 /// responsible for executing the commands that are defined in the config file
 pub mod commander;
 mod commander_data;

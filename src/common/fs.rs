@@ -1,3 +1,4 @@
+use crate::common::get_random_range;
 use crate::common::logging::error;
 use anyhow::{bail, Context};
 use std::io::Write;
@@ -6,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs};
 
-pub(crate) fn write_atomic_text(path: &Path, contents: String) -> anyhow::Result<()> {
-    let tmp_path = path.with_extension("tmp");
+pub(crate) fn write_atomic(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
+    let tmp_path = path.with_extension(format!(".{:?}.tmp", get_random_range(0, u16::MAX)));
 
     {
         let mut f = fs::OpenOptions::new()
@@ -17,8 +18,7 @@ pub(crate) fn write_atomic_text(path: &Path, contents: String) -> anyhow::Result
             .open(&tmp_path)
             .with_context(|| format!("open {}", tmp_path.display()))?;
 
-        f.write_all(contents.as_bytes())
-            .with_context(|| format!("write tmp {}", tmp_path.display()))?;
+        f.write_all(contents).with_context(|| format!("write tmp {}", tmp_path.display()))?;
         f.sync_all().with_context(|| format!("fsync tmp {}", tmp_path.display()))?;
     }
 
