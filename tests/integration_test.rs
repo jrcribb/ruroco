@@ -72,7 +72,7 @@ mod tests {
         }
 
         fn run_client_send(&self) {
-            let sender = Sender::create(SendCommand {
+            let mut sender = Sender::create(SendCommand {
                 address: self.server_address.to_string(),
                 key: fs::read_to_string(&self.key_path).expect("failed to read key"),
                 command: "default".to_string(),

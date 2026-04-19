@@ -333,13 +333,13 @@ mod tests {
     }
 
     #[test]
-    fn test_check_if_writeable() {
+    fn test_check_if_writable() {
         let dir = tempfile::tempdir().unwrap();
         assert!(Updater::check_if_writeable(dir.path()).unwrap());
     }
 
     #[test]
-    fn test_check_if_writeable_readonly() {
+    fn test_check_if_writable_readonly() {
         let dir = tempfile::tempdir().unwrap();
         let readonly_dir = create_readonly_dir(dir.path());
         assert!(!Updater::check_if_writeable(&readonly_dir).unwrap());
