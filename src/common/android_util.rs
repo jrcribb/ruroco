@@ -101,7 +101,8 @@ impl AndroidUtil {
         args: &[JValue<'_>],
     ) -> anyhow::Result<Global<JObject<'static>>> {
         let name = JNIString::new(name);
-        let sig = RuntimeMethodSignature::from_str(sig).context("Failed to parse method signature")?;
+        let sig =
+            RuntimeMethodSignature::from_str(sig).context("Failed to parse method signature")?;
         let result = env.call_method(obj, name, sig.method_signature(), args);
         let obj = Self::unpack_result(result)?;
         env.new_global_ref(&obj).context("Failed to create global ref")
@@ -116,7 +117,8 @@ impl AndroidUtil {
     ) -> anyhow::Result<Global<JObject<'static>>> {
         let class = JNIString::new(class);
         let name = JNIString::new(name);
-        let sig = RuntimeMethodSignature::from_str(sig).context("Failed to parse method signature")?;
+        let sig =
+            RuntimeMethodSignature::from_str(sig).context("Failed to parse method signature")?;
         let result = env.call_static_method(class, name, sig.method_signature(), args);
         let obj = Self::unpack_result(result)?;
         env.new_global_ref(&obj).context("Failed to create global ref")
@@ -129,12 +131,18 @@ impl AndroidUtil {
         args: &[JValue<'_>],
     ) -> anyhow::Result<Global<JObject<'static>>> {
         let class = JNIString::new(class);
-        let sig = RuntimeMethodSignature::from_str(sig).context("Failed to parse method signature")?;
-        let obj = env.new_object(class, sig.method_signature(), args).context("Failed to create new object")?;
+        let sig =
+            RuntimeMethodSignature::from_str(sig).context("Failed to parse method signature")?;
+        let obj = env
+            .new_object(class, sig.method_signature(), args)
+            .context("Failed to create new object")?;
         env.new_global_ref(&obj).context("Failed to create global ref")
     }
 
-    fn to_string_impl(env: &Env<'_>, global_ref: &Global<JObject<'static>>) -> anyhow::Result<String> {
+    fn to_string_impl(
+        env: &Env<'_>,
+        global_ref: &Global<JObject<'static>>,
+    ) -> anyhow::Result<String> {
         // Safety: we know this JObject is actually a java.lang.String
         let cast = unsafe { env.as_cast_unchecked::<JString>(global_ref.as_ref()) };
         let chars = cast.mutf8_chars(env).context("Failed to get string chars")?;
@@ -144,6 +152,9 @@ impl AndroidUtil {
     fn unpack_result<'local>(
         result: jni::errors::Result<JValueOwned<'local>>,
     ) -> anyhow::Result<JObject<'local>> {
-        Ok(result.context("Failed to call method")?.l().context("Failed to unwrap method call result")?)
+        Ok(result
+            .context("Failed to call method")?
+            .l()
+            .context("Failed to unwrap method call result")?)
     }
 }
